@@ -5,16 +5,36 @@ its read-only tools: resources_get, resources_list, pods_list_in_namespace,
 pods_get, pods_log, and events_list.
 """
 
+import logging
+import time
+
 from strands import Agent
 from mcp.client.streamable_http import streamablehttp_client
 from strands.tools.mcp import MCPClient
 
+logger = logging.getLogger("agent.mcp")
+
 
 def connect(endpoint: str) -> tuple[MCPClient, list]:
-    """Connect to the upstream Kubernetes MCP server and discover its tools."""
-    client = MCPClient(lambda: streamablehttp_client(endpoint.rstrip('/') + '/mcp'))
-    client.start()
-    return client, client.list_tools_sync()
+    """Wait for the Kubernetes MCP server, then discover its tools."""
+    for attempt in range(1, 16):
+        client = MCPClient(lambda: streamablehttp_client(endpoint.rstrip('/') + '/mcp'))
+        started = False
+        try:
+            client.start()
+            started = True
+            return client, client.list_tools_sync()
+        except Exception as error:
+            # start() cleans up initialization failures; we clean up discovery failures.
+            if started:
+                try:
+                    client.stop(None, None, None)
+                except Exception:
+                    logger.warning("Could not close failed Kubernetes MCP connection")
+            if attempt == 15:
+                raise RuntimeError("Kubernetes MCP unavailable after 15 startup attempts") from error
+            logger.warning("Kubernetes MCP is not ready; retrying (%s/15)", attempt)
+            time.sleep(2)
 
 
 def build(make_model, cluster_mcp_tools, hooks_for):

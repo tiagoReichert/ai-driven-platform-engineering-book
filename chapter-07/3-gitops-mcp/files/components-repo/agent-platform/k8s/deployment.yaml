@@ -72,6 +72,12 @@ spec:
           mountPath: /state/memory
         - name: sessions
           mountPath: /state/sessions
+        startupProbe:
+          httpGet:
+            path: /healthz
+            port: http
+          periodSeconds: 5
+          failureThreshold: 60
         readinessProbe:
           httpGet:
             path: /healthz

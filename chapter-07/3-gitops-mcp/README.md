@@ -179,4 +179,21 @@ The agent should return the URL of the repair PR it created. Review the PR, conf
 
 A healthy app should not produce an unnecessary repair PR.
 
+<details>
+<summary>Troubleshooting MCP startup</summary>
+
+The runtime retries each MCP connection up to 15 times, with two seconds between attempts. Its startup probe allows five minutes before Kubernetes restarts it; the GitHub MCP readiness probe checks that its HTTP port is accepting connections.
+
+If startup still fails, inspect the runtime and MCP logs:
+
+```bash
+kubectl -n agent-platform logs deployment/agent-runtime --tail=100
+kubectl -n agent-platform logs deployment/cluster-mcp --tail=100
+kubectl -n agent-platform logs deployment/gitops-mcp --tail=100
+```
+
+An `unavailable after 15 startup attempts` error identifies the failing MCP server. Check its Pod events and Service endpoints; for GitHub authentication errors, verify the runtime's `gitops-mcp-github` Secret reference.
+
+</details>
+
 Continue to [Lab 4: Backstage collaboration](../4-backstage-collaboration/README.md).

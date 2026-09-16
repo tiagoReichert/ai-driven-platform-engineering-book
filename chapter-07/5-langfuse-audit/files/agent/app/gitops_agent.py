@@ -5,21 +5,40 @@ create_branch, create_or_update_file, and create_pull_request, plus
 consult_skill for the image-repair procedure.
 """
 
+import logging
 import os
+import time
 
 from strands import Agent
 from mcp.client.streamable_http import streamablehttp_client
 from strands.tools.mcp import MCPClient
 
+logger = logging.getLogger("agent.mcp")
+
 
 def connect(endpoint: str, token: str) -> tuple[MCPClient, list]:
-    """Connect to the GitOps MCP gateway and discover its tools."""
-    client = MCPClient(lambda: streamablehttp_client(
-        endpoint.rstrip('/') + '/mcp',
-        headers={'Authorization': f'Bearer {token}'},
-    ))
-    client.start()
-    return client, client.list_tools_sync()
+    """Wait for GitHub's official MCP server, then discover its tools."""
+    for attempt in range(1, 16):
+        client = MCPClient(lambda: streamablehttp_client(
+            endpoint.rstrip('/') + '/mcp',
+            headers={'Authorization': f'Bearer {token}'},
+        ))
+        started = False
+        try:
+            client.start()
+            started = True
+            return client, client.list_tools_sync()
+        except Exception as error:
+            # start() cleans up initialization failures; we clean up discovery failures.
+            if started:
+                try:
+                    client.stop(None, None, None)
+                except Exception:
+                    logger.warning("Could not close failed GitHub MCP connection")
+            if attempt == 15:
+                raise RuntimeError("GitHub MCP unavailable after 15 startup attempts") from error
+            logger.warning("GitHub MCP is not ready; retrying (%s/15)", attempt)
+            time.sleep(2)
 
 
 def build(make_model, gitops_mcp_tools, hooks_for):

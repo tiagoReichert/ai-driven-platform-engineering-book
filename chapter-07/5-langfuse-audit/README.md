@@ -223,7 +223,9 @@ This checks internal consistency. Someone with write access could rewrite the en
 kubectl -n agent-platform logs deployment/agent-runtime --tail=100
 ```
 
-Look for `telemetry: langfuse client active`. If credentials are missing, create `agent-langfuse-keys` and restart the runtime. This lab uses the Langfuse v2 SDK; it does not use the OTLP endpoint.
+Look for `telemetry: langfuse client active`. If credentials are missing, create `agent-langfuse-keys` and restart the runtime. This lab pins the Langfuse SDK to `2.60.10` for its v2 trace/span API; it does not use the OTLP endpoint.
+
+**Runtime waits for MCP servers:** it retains Lab 3's 15-attempt connection retries and five-minute startup probe. If attempts are exhausted, see the MCP startup troubleshooting at the end of [Lab 3](../3-gitops-mcp/README.md).
 
 **Catalog search returns 401:** keep the matching Backstage service token configured in Backstage and in `agent-backstage-read`, as described in Lab 4.
 

@@ -25,32 +25,33 @@ _gitops_tools: list = []
 
 
 def start_clients() -> None:
-    """Connect once at startup and cache each server's tool list."""
+    """Wait for the MCP servers at startup and cache their tool lists."""
     global _gitops_client, _gitops_tools, _cluster_client, _cluster_tools
-    # The Diagnostics Agent owns the upstream Kubernetes MCP connection.
-    _cluster_client, _cluster_tools = connect_cluster(os.environ['MCP_CLUSTER_URL'])
-
-    # GitOps is optional until Lab 3's gateway is deployed.
-    if not settings.mcp_gitops_url:
-        return
-
-    # The GitOps Agent owns the GitOps MCP connection.
-    token = os.environ['GITHUB_PERSONAL_ACCESS_TOKEN']
-    _gitops_client, _gitops_tools = connect_gitops(settings.mcp_gitops_url, token)
+    try:
+        # Each specialist owns its connection and retries while the server starts.
+        _cluster_client, _cluster_tools = connect_cluster(os.environ['MCP_CLUSTER_URL'])
+        if settings.mcp_gitops_url:
+            token = os.environ['GITHUB_PERSONAL_ACCESS_TOKEN']
+            _gitops_client, _gitops_tools = connect_gitops(settings.mcp_gitops_url, token)
+    except Exception:
+        # If the second server fails, also release the first connection.
+        stop_clients()
+        raise
 
 
 def stop_clients() -> None:
     """Stop all MCP clients. Called at shutdown."""
-    global _gitops_client, _cluster_client
-    if _cluster_client is not None:
-        _cluster_client.stop(None, None, None)
-        _cluster_client = None
-    if _gitops_client is not None:
+    global _gitops_client, _gitops_tools, _cluster_client, _cluster_tools
+    clients = (_cluster_client, _gitops_client)
+    _cluster_client = _gitops_client = None
+    _cluster_tools, _gitops_tools = [], []
+    for client in clients:
+        if client is None:
+            continue
         try:
-            _gitops_client.stop(None, None, None)
+            client.stop(None, None, None)
         except Exception as e:
-            logger.warning("error stopping gitops client: %s", e)
-        _gitops_client = None
+            logger.warning("error stopping MCP client: %s", e)
 
 
 def gitops_tools() -> list:
