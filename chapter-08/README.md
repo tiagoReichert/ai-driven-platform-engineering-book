@@ -1,5 +1,8 @@
 # Chapter 8: Security in Practice
 
+> [!WARNING]
+> **For learning and experimentation only.** These labs are reference implementations and are not production-ready baselines. Do not deploy them to production without an independent security review, infrastructure hardening, and testing appropriate to your workloads and compliance requirements. The credentials, IAM permissions, network boundaries, policies, and deployment configurations are intentionally simplified for local exercises.
+
 These cumulative labs add enforceable security to the agent platform. Backstage supplies reviewed application metadata, approved MCP entries, and mandatory guardrails. The runtime validates identity and uses OPA to authorize every tool call by role, environment, and tenant.
 
 Kubernetes access remains read-only. Repository changes are proposed through pull requests, reviewed by a person, and applied by ArgoCD after merge.
