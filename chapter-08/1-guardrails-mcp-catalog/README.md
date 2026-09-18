@@ -1,6 +1,6 @@
 # Lab 1: Mandatory Guardrails and the Approved MCP Catalog
 
-Register MCP servers and mandatory guardrail profiles in Backstage, create two applications in different tenants, and enforce approved tool access in the runtime. Reuse these applications for authorization, identity, and tenant-isolation exercises in Labs 2–4. Alice is a fixed demo identity until Lab 3.
+Register MCP servers and mandatory guardrail profiles in Backstage, create applications across two tenants and environments, and enforce approved tool access in the runtime. Reuse these applications for authorization, identity, and tenant-isolation exercises in Labs 2–4. Alice is a fixed demo identity until Lab 3.
 
 ```mermaid
 flowchart LR
@@ -65,7 +65,7 @@ else
 fi
 ```
 
-## Create the two applications
+## Create the applications
 
 Use these values for the exercises. Each application has a dedicated namespace; the Chapter 5 ApplicationSet expects the namespace to match the application directory name.
 
@@ -73,72 +73,50 @@ Use these values for the exercises. Each application has a dedicated namespace; 
 |---|---|---|---|
 | `logistics-demo` | `logistics-demo` | `tenant-a` | `dev` |
 | `payments-demo` | `payments-demo` | `tenant-b` | `dev` |
+| `logistics-prod` | `logistics-prod` | `tenant-a` | `production` |
 
-For a faster command-line path, the lab includes the same generated application files with explicit placeholders. Copy the skeleton and replace its placeholders. These commands do not commit, push, or deploy anything.
-
-Create the tenant A application. If that directory already exists, the block prints a message and skips the copy without closing your terminal:
-
-```bash
-if [ -e "$COMPONENTS_REPO/logistics-demo" ]; then
-  echo "logistics-demo already exists; reuse it or remove it before continuing."
-else
-  cp -R "$BOOK_REPO/chapter-08/1-guardrails-mcp-catalog/files/app-template" \
-    "$COMPONENTS_REPO/logistics-demo"
-  sed -i.bak \
-  -e 's/APP_NAMESPACE/logistics-demo/g' \
-  -e 's/APP_NAME/logistics-demo/g' \
-  -e 's/TENANT_ID/tenant-a/g' \
-  -e 's/ENVIRONMENT/dev/g' \
-  -e 's/APP_DESCRIPTION/Logistics demo application/g' \
-  -e 's#APP_OWNER#user:guest#g' \
-  -e 's/MIN_REPLICAS/2/g' \
-  -e 's/MAX_REPLICAS/10/g' \
-  -e 's/REPLICAS/2/g' \
-  -e "s/GITHUB_USERNAME/$GITHUB_USERNAME/g" \
-  -e 's/REPOSITORY_NAME/backstage-components/g' \
-  "$COMPONENTS_REPO/logistics-demo/catalog-info.yaml" \
-  "$COMPONENTS_REPO/logistics-demo/README.md" \
-  "$COMPONENTS_REPO/logistics-demo/argocd/application.yaml" \
-    "$COMPONENTS_REPO/logistics-demo/k8s/"*.yaml
-  find "$COMPONENTS_REPO/logistics-demo" -name '*.bak' -delete
-fi
-```
-
-Create the tenant B application:
+Render all three applications from the same template. Existing directories are reported and skipped without closing your terminal:
 
 ```bash
-if [ -e "$COMPONENTS_REPO/payments-demo" ]; then
-  echo "payments-demo already exists; reuse it or remove it before continuing."
-else
+while IFS='|' read -r app tenant environment description; do
+  if [ -e "$COMPONENTS_REPO/$app" ]; then
+    echo "$app already exists; reusing it."
+    continue
+  fi
   cp -R "$BOOK_REPO/chapter-08/1-guardrails-mcp-catalog/files/app-template" \
-    "$COMPONENTS_REPO/payments-demo"
+    "$COMPONENTS_REPO/$app"
   sed -i.bak \
-  -e 's/APP_NAMESPACE/payments-demo/g' \
-  -e 's/APP_NAME/payments-demo/g' \
-  -e 's/TENANT_ID/tenant-b/g' \
-  -e 's/ENVIRONMENT/dev/g' \
-  -e 's/APP_DESCRIPTION/Payments demo application/g' \
-  -e 's#APP_OWNER#user:guest#g' \
-  -e 's/MIN_REPLICAS/2/g' \
-  -e 's/MAX_REPLICAS/10/g' \
-  -e 's/REPLICAS/2/g' \
-  -e "s/GITHUB_USERNAME/$GITHUB_USERNAME/g" \
-  -e 's/REPOSITORY_NAME/backstage-components/g' \
-  "$COMPONENTS_REPO/payments-demo/catalog-info.yaml" \
-  "$COMPONENTS_REPO/payments-demo/README.md" \
-  "$COMPONENTS_REPO/payments-demo/argocd/application.yaml" \
-    "$COMPONENTS_REPO/payments-demo/k8s/"*.yaml
-  find "$COMPONENTS_REPO/payments-demo" -name '*.bak' -delete
-fi
+    -e "s/APP_NAMESPACE/$app/g" \
+    -e "s/APP_NAME/$app/g" \
+    -e "s/TENANT_ID/$tenant/g" \
+    -e "s/ENVIRONMENT/$environment/g" \
+    -e "s/APP_DESCRIPTION/$description/g" \
+    -e 's#APP_OWNER#user:guest#g' \
+    -e 's/MIN_REPLICAS/2/g' \
+    -e 's/MAX_REPLICAS/10/g' \
+    -e 's/REPLICAS/2/g' \
+    -e "s/GITHUB_USERNAME/$GITHUB_USERNAME/g" \
+    -e 's/REPOSITORY_NAME/backstage-components/g' \
+    "$COMPONENTS_REPO/$app/catalog-info.yaml" \
+    "$COMPONENTS_REPO/$app/README.md" \
+    "$COMPONENTS_REPO/$app/argocd/application.yaml" \
+    "$COMPONENTS_REPO/$app/k8s/"*.yaml
+  find "$COMPONENTS_REPO/$app" -name '*.bak' -delete
+done <<'APPS'
+logistics-demo|tenant-a|dev|Logistics demo application
+payments-demo|tenant-b|dev|Payments demo application
+logistics-prod|tenant-a|production|Production logistics application
+APPS
 ```
 
-On a repeat run, reuse the generated directories and review their annotations instead of running these commands again. You can also create both applications from **Create → Web App with Kubernetes Deployment** in Backstage using the values in the table.
+You can also create the applications from **Create → Web App with Kubernetes Deployment** in Backstage using the values in the table.
 
 Review the catalog entries before committing. Confirm that the tenants differ and each manifest path and namespace matches its application:
 
 ```bash
 cat "$COMPONENTS_REPO/logistics-demo/catalog-info.yaml"
 cat "$COMPONENTS_REPO/payments-demo/catalog-info.yaml"
+cat "$COMPONENTS_REPO/logistics-prod/catalog-info.yaml"
 ```
 
 The labs authorize a dedicated application namespace, including its pods, ReplicaSets, services, and events. Verify namespace ownership and security metadata during PR review. Production should also verify that the authenticated user may assign the requested tenant and environment.
@@ -176,8 +154,8 @@ Review the Deployment and retain your model-provider settings, repository name/d
 ```bash
 git -C "$COMPONENTS_REPO" checkout -b chapter-08/lab-1-guardrails
 git -C "$COMPONENTS_REPO" status --short
-git --no-pager -C "$COMPONENTS_REPO" diff -- agent-platform/k8s/ platform-security.yaml logistics-demo/ payments-demo/
-git -C "$COMPONENTS_REPO" add agent-platform/k8s/ platform-security.yaml logistics-demo/ payments-demo/
+git --no-pager -C "$COMPONENTS_REPO" diff -- agent-platform/k8s/ platform-security.yaml logistics-demo/ payments-demo/ logistics-prod/
+git -C "$COMPONENTS_REPO" add agent-platform/k8s/ platform-security.yaml logistics-demo/ payments-demo/ logistics-prod/
 git -C "$COMPONENTS_REPO" commit -m "chapter 8 lab 1: guardrails"
 git -C "$COMPONENTS_REPO" push -u origin HEAD
 (cd "$COMPONENTS_REPO" && gh pr create --fill)
@@ -250,6 +228,7 @@ Check that both application Deployments have been created. If either is not foun
 ```bash
 kubectl -n logistics-demo get deployment logistics-demo
 kubectl -n payments-demo get deployment payments-demo
+kubectl -n logistics-prod get deployment logistics-prod
 ```
 
 ## Test the MCP allowlist

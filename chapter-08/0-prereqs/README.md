@@ -1,6 +1,6 @@
 # Lab 0: Prerequisites
 
-Complete Chapter 7 through Lab 5. Reuse its kind cluster, components repository, Backstage catalog/chat, model credentials, and `agent-backstage-read` service token. Backstage must remain reachable while the Chapter 8 runtime starts and handles requests. No external identity provider is required.
+Complete Chapter 7 through Lab 5. Reuse its kind cluster, components repository, Backstage catalog/chat, model credentials, and `agent-backstage-read` service token. Backstage must remain reachable while the Chapter 8 runtime starts and handles requests. Lab 3 deploys a local Keycloak instance in the existing cluster.
 
 Set the repository paths and cluster architecture in your lab terminal:
 
